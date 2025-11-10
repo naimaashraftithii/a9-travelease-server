@@ -9,10 +9,20 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "",
   "dependencies": {
     "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
     "express": "^5.1.0",
     "mongodb": "^7.0.0"
-  }
+  },
+
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/naimaashraftithii/a9-travelease-server.git"
+  },
+  "bugs": {
+    "url": "https://github.com/naimaashraftithii/a9-travelease-server/issues"
+  },
+  "homepage": "https://github.com/naimaashraftithii/a9-travelease-server#readme",
+  "description": ""
 }
