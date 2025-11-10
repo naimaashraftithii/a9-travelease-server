@@ -15,7 +15,8 @@ const port = process.env.PORT || 3000
 app.use(cors())
 app.use(express.json())
 
-
+// Load Mongo URI from .env
+const uri = process.env.MONGO_URI
 
 // Create a MongoClient with Stable API version
 const client = new MongoClient(uri, {
