@@ -328,32 +328,29 @@ async function run() {
     });
 
     // ---------------- BOOKINGS ----------------
-    // POST /bookings  (protected) - create booking for current user
-    app.post("/bookings", verifyFirebaseToken, async (req, res) => {
-      try {
-        const { vehicleId, status = "Interested" } = req.body || {};
+app.post('/bookings', verifyFirebaseToken, async (req, res) => {
+  // ...
+})
 
-        if (!vehicleId) {
-          return res.status(400).send({ message: "vehicleId required" });
+app.get('/my-bookings', verifyFirebaseToken, async (req, res) => {
+  try {
+    const list = await bookings.aggregate([
+      { $match: { userEmail: req.token_email } },
+      {
+        $lookup: {
+          from: 'vehicles',
+          localField: 'vehicleId',
+          foreignField: '_id',
+          as: 'vehicle'
         }
-        if (!ObjectId.isValid(vehicleId)) {
-          return res.status(400).send({ message: "Invalid vehicleId" });
-        }
+      },
+      { $unwind: '$vehicle' },
+      { $sort: { createdAt: -1 } }
+    ]).toArray()
+    res.send(list)
+  } catch (e) { res.status(500).send({ message: e.message }) }
+})
 
-        const booking = {
-          vehicleId: new ObjectId(vehicleId),
-          userEmail: req.token_email,
-          status,
-          createdAt: new Date(),
-        };
-
-        const result = await bookings.insertOne(booking);
-        res.send(result);
-      } catch (e) {
-        console.error(e);
-        res.status(500).send({ message: e.message });
-      }
-    });
 
     // GET /my-bookings  (protected) - bookings for the logged-in user
     app.get("/my-bookings", verifyFirebaseToken, async (req, res) => {
