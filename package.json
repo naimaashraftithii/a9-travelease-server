@@ -13,9 +13,9 @@
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
+    "firebase-admin": "^12.7.0",
     "mongodb": "^7.0.0"
   },
-
   "repository": {
     "type": "git",
     "url": "git+https://github.com/naimaashraftithii/a9-travelease-server.git"
