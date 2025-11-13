@@ -1,4 +1,3 @@
-// index.js (TravelEase server)
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -14,9 +13,9 @@ let serviceAccount;
 try {
   serviceAccount = require(path.join(__dirname, "firebase-admin-key.json"));
 } catch {
-    console.error("❌ Missing firebase-admin-key.json next to index.js");
-    console.error("   Download it from Firebase > Project settings > Service accounts");
-    process.exit(1);
+  console.error("❌ Missing firebase-admin-key.json next to index.js");
+  console.error("   Download it from Firebase > Project settings > Service accounts");
+  process.exit(1);
 }
 
 admin.initializeApp({
@@ -26,7 +25,11 @@ admin.initializeApp({
 // ---------- Middleware ----------
 app.use(
   cors({
-    origin: ["http://localhost:5173", "http://127.0.0.1:5173"],
+    origin: [
+      "http://localhost:5173",
+      "http://127.0.0.1:5173",
+      "https://your-client-domain.netlify.app", // ✅ add your deployed frontend domain here
+    ],
     credentials: true,
   })
 );
@@ -40,7 +43,6 @@ const verifyFirebaseToken = async (req, res, next) => {
   }
 
   const token = header.split(" ")[1];
-
   try {
     const decoded = await admin.auth().verifyIdToken(token);
     req.token_email = decoded.email;
@@ -74,7 +76,7 @@ app.get("/", (_req, res) => {
 
 async function run() {
   try {
-    await client.connect();
+    // No client.connect() needed in serverless hosting like Vercel
     const db = client.db("travelease_db");
     const vehicles = db.collection("vehicles");
     const bookings = db.collection("bookings");
@@ -111,7 +113,6 @@ async function run() {
     });
 
     // ---------------- VEHICLES ----------------
-    // GET /vehicles?category=&location=&minPrice=&maxPrice=&sortBy=&sortOrder=&userEmail=&limit=
     app.get("/vehicles", async (req, res) => {
       try {
         const {
@@ -126,7 +127,6 @@ async function run() {
         } = req.query;
 
         const query = {};
-
         if (category) query.category = category;
         if (location) query.location = { $regex: location, $options: "i" };
         if (userEmail) query.userEmail = userEmail;
@@ -137,9 +137,7 @@ async function run() {
           if (maxPrice) query.pricePerDay.$lte = Number(maxPrice);
         }
 
-        const sort = {
-          [sortBy]: sortOrder === "asc" ? 1 : -1,
-        };
+        const sort = { [sortBy]: sortOrder === "asc" ? 1 : -1 };
 
         const cursor = vehicles.find(query).sort(sort);
         if (limit) cursor.limit(Number(limit));
@@ -167,11 +165,10 @@ async function run() {
       }
     });
 
-    // Top vehicles by bookings (for home "Top Vehicles" section)
+    // Top vehicles by bookings
     app.get("/stats/top-vehicles", async (req, res) => {
       try {
         const limit = Number(req.query.limit) || 3;
-
         const pipeline = [
           {
             $group: {
@@ -215,7 +212,7 @@ async function run() {
       }
     });
 
-    // Get single vehicle
+    // Get vehicle by ID
     app.get("/vehicles/:id", async (req, res) => {
       try {
         const { id } = req.params;
@@ -250,7 +247,7 @@ async function run() {
           availability: data.availability || "Available",
           description: data.description || "",
           coverImage: data.coverImage || "",
-          userEmail: req.token_email, // force ownership from token
+          userEmail: req.token_email,
           createdAt: now,
           updatedAt: now,
         };
@@ -277,7 +274,6 @@ async function run() {
           return res.status(404).send({ message: "Not found" });
         }
 
-        // Only owner can update
         if (vehicle.userEmail !== req.token_email) {
           return res.status(403).send({ message: "Forbidden" });
         }
@@ -314,7 +310,6 @@ async function run() {
           return res.status(404).send({ message: "Not found" });
         }
 
-        // Only owner can delete
         if (vehicle.userEmail !== req.token_email) {
           return res.status(403).send({ message: "Forbidden" });
         }
@@ -327,32 +322,30 @@ async function run() {
       }
     });
 
-    // ---------------- BOOKINGS ----------------
-app.post('/bookings', verifyFirebaseToken, async (req, res) => {
-  // ...
-})
-
-app.get('/my-bookings', verifyFirebaseToken, async (req, res) => {
-  try {
-    const list = await bookings.aggregate([
-      { $match: { userEmail: req.token_email } },
-      {
-        $lookup: {
-          from: 'vehicles',
-          localField: 'vehicleId',
-          foreignField: '_id',
-          as: 'vehicle'
+    // BOOKINGS
+    app.post("/bookings", verifyFirebaseToken, async (req, res) => {
+      try {
+        const data = req.body || {};
+        if (!data.vehicleId) {
+          return res.status(400).send({ message: "vehicleId required" });
         }
-      },
-      { $unwind: '$vehicle' },
-      { $sort: { createdAt: -1 } }
-    ]).toArray()
-    res.send(list)
-  } catch (e) { res.status(500).send({ message: e.message }) }
-})
 
+        const doc = {
+          vehicleId: new ObjectId(data.vehicleId),
+          userEmail: req.token_email,
+          startDate: data.startDate,
+          endDate: data.endDate,
+          totalPrice: Number(data.totalPrice),
+          createdAt: new Date(),
+        };
 
-    // GET /my-bookings  (protected) - bookings for the logged-in user
+        const result = await bookings.insertOne(doc);
+        res.send(result);
+      } catch (e) {
+        res.status(500).send({ message: e.message });
+      }
+    });
+
     app.get("/my-bookings", verifyFirebaseToken, async (req, res) => {
       try {
         const list = await bookings
@@ -378,9 +371,9 @@ app.get('/my-bookings', verifyFirebaseToken, async (req, res) => {
       }
     });
 
-    console.log("✅ Connected to MongoDB and ready!");
+    console.log("🚗 MongoDB ready and API endpoints loaded!");
   } catch (err) {
-    console.error("❌ Server error:", err);
+    console.error("Server error:", err);
   }
 }
 
